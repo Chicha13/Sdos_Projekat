@@ -37,7 +37,7 @@ system/startup_ldf/app_IVT.doj: ../system/startup_ldf/app_IVT.s
 system/startup_ldf/app_heaptab.doj: ../system/startup_ldf/app_heaptab.c
 	@echo 'Building file: $<'
 	@echo 'Invoking: CrossCore SHARC C/C++ Compiler'
-	cc21k -c -file-attr ProjectName="CompressGrayPicture" -proc ADSP-21489 -flags-compiler --no_wrap_diagnostics -si-revision 0.2 -O -Ov100 -g -DCORE0 -DDO_CYCLE_COUNTS -D_DEBUG @includes-cbef974e54f0b7691be7b2db406f2d23.txt -structs-do-not-overlap -no-const-strings -no-multiline -warn-protos -double-size-32 -swc -gnu-style-dependencies -MD -Mo "system/startup_ldf/app_heaptab.d" -o "$@" "$<"
+	cc21k -c -file-attr ProjectName="CompressGrayPicture" -proc ADSP-21489 -flags-compiler --no_wrap_diagnostics -si-revision 0.2 -O -Ov100 -g -DCORE0 -DDO_CYCLE_COUNTS -D_DEBUG @includes-cbef974e54f0b7691be7b2db406f2d23.txt -structs-do-not-overlap -no-const-strings -no-multiline -warn-protos -double-size-32 -swc -linear-simd -loop-simd -gnu-style-dependencies -MD -Mo "system/startup_ldf/app_heaptab.d" -o "$@" "$<"
 	@echo 'Finished building: $<'
 	@echo ' '
 

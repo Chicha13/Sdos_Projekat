@@ -44,6 +44,8 @@
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/system}&quot;"/>
 								</option>
 								<option id="compiler.option.compilerswitch.441760321" name="Compiler Switch" superClass="compiler.option.compilerswitch" value="false" valueType="boolean"/>
+								<option id="sharc.compiler.option.linearsimd.54911484" superClass="sharc.compiler.option.linearsimd" value="true" valueType="boolean"/>
+								<option id="sharc.compiler.option.loopsimd.1449572484" superClass="sharc.compiler.option.loopsimd" value="true" valueType="boolean"/>
 								<inputType id="compiler.inputType.1348249030" name="C/C++ Source" superClass="compiler.inputType"/>
 							</tool>
 							<tool id="sharc.toolchain.linker.438610390" name="CrossCore SHARC Linker" superClass="sharc.toolchain.linker">
@@ -218,4 +220,5 @@
 		</project-mappings>
 	</storageModule>
 	<storageModule moduleId="org.eclipse.cdt.make.core.buildtargets"/>
+	<storageModule moduleId="refreshScope"/>
 </cproject>
