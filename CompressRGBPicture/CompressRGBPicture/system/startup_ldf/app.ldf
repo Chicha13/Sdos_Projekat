@@ -534,20 +534,20 @@ PROCESSOR p0
          
       } > mem_sram
       
-           dxe_seg_sdram1
+         dxe_seg_sdram1
 	{
     	INPUT_SECTIONS( $OBJECTS(seg_sdram1) )
 	} > mem_sdram
-	
-	        dxe_seg_sdram2
+	/*
+	        dxe_seg_sram1
 	{
-    	INPUT_SECTIONS( $OBJECTS(seg_sdram2) )
-	} > mem_sram
+    	INPUT_SECTIONS( $OBJECTS(seg_sram1) )
+	} > mem_sram*/
 	
-	    dxe_seg_dm_fast
+	    dxe_seg_pm_fast
 	{
-    	INPUT_SECTIONS( $OBJECTS(seg_dm_fast) )
-	} > mem_block2_pm32      
+    	INPUT_SECTIONS( $OBJECTS(seg_pm_fast) )
+	} > mem_block2_pm32
       /*$VDSG<insert-new-sections-at-the-end>                   */
       /* Text inserted between these $VDSG comments will be preserved */
       /*$VDSG<insert-new-sections-at-the-end>                   */

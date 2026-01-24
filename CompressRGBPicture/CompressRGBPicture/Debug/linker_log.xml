@@ -1,8 +1,8 @@
 <?xml version="1.0" standalone="no"?>
 <?xml-stylesheet type="text/xsl" href="file:///C:/Analog Devices/CrossCore Embedded Studio 2.12.1/System/linker_log.xsl"?>
-<DOCUMENT gen_time='Sat Jan 17 04:37:14 2026
+<DOCUMENT gen_time='Sat Jan 24 16:36:44 2026
 '>
-<MSG id='0433EE50' mid='li3050' type='Informational' suppressed=''>
+<MSG id='0459F570' mid='li3050' type='Informational' suppressed=''>
 <TEXT><![CDATA[Input section(s) were excluded from output section 'dxe_block0_nw_code']]></TEXT>
 <EXTENDED_INFO><![CDATA[The following input section(s) were excluded
     app_startup.doj(seg_pmco)
@@ -16,6 +16,7 @@
     libcc.dlb[lib_ldtof.doj](seg_pmco)
     libcc.dlb[strlen.doj](seg_pmco)
     libc.dlb[adi_fatal_error.doj](seg_pmco)
+    libc.dlb[cosf_simd.doj](seg_pmco)
     libc.dlb[dispatched_handler_activate.doj](seg_pmco)
     libc.dlb[dispatched_handler_deactivate.doj](seg_pmco)
     libc.dlb[dispatched_handler_register.doj](seg_pmco)
@@ -25,10 +26,9 @@
     libc.dlb[isinff.doj](seg_pmco)
     libc.dlb[no_dispatched_handler.doj](seg_pmco)
     libc.dlb[set_c.doj](seg_pmco)
-    libc.dlb[sinf.doj](seg_pmco)
     libc.dlb[sqrtf.doj](seg_pmco)]]></EXTENDED_INFO>
 </MSG>
-<MSG id='0433F390' mid='li3050' type='Informational' suppressed=''>
+<MSG id='0459F490' mid='li3050' type='Informational' suppressed=''>
 <TEXT><![CDATA[Input section(s) were excluded from output section 'dxe_block0_nw_code_prio3']]></TEXT>
 <EXTENDED_INFO><![CDATA[The following input section(s) were excluded
     app_startup.doj(seg_pmco)
@@ -42,6 +42,7 @@
     libcc.dlb[lib_ldtof.doj](seg_pmco)
     libcc.dlb[strlen.doj](seg_pmco)
     libc.dlb[adi_fatal_error.doj](seg_pmco)
+    libc.dlb[cosf_simd.doj](seg_pmco)
     libc.dlb[dispatched_handler_activate.doj](seg_pmco)
     libc.dlb[dispatched_handler_deactivate.doj](seg_pmco)
     libc.dlb[dispatched_handler_register.doj](seg_pmco)
@@ -51,7 +52,6 @@
     libc.dlb[isinff.doj](seg_pmco)
     libc.dlb[no_dispatched_handler.doj](seg_pmco)
     libc.dlb[set_c.doj](seg_pmco)
-    libc.dlb[sinf.doj](seg_pmco)
     libc.dlb[sqrtf.doj](seg_pmco)]]></EXTENDED_INFO>
 </MSG>
 </DOCUMENT>
