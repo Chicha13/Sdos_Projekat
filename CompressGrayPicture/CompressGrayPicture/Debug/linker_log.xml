@@ -1,8 +1,8 @@
 <?xml version="1.0" standalone="no"?>
 <?xml-stylesheet type="text/xsl" href="file:///C:/Analog Devices/CrossCore Embedded Studio 2.12.1/System/linker_log.xsl"?>
-<DOCUMENT gen_time='Sat Jan 24 16:13:11 2026
+<DOCUMENT gen_time='Mon Jan 26 21:50:49 2026
 '>
-<MSG id='0458E498' mid='li3050' type='Informational' suppressed=''>
+<MSG id='03DF9130' mid='li3050' type='Informational' suppressed=''>
 <TEXT><![CDATA[Input section(s) were excluded from output section 'dxe_block0_nw_code']]></TEXT>
 <EXTENDED_INFO><![CDATA[The following input section(s) were excluded
     app_startup.doj(seg_pmco)
@@ -28,7 +28,7 @@
     libc.dlb[set_c.doj](seg_pmco)
     libc.dlb[sqrtf.doj](seg_pmco)]]></EXTENDED_INFO>
 </MSG>
-<MSG id='0458F998' mid='li3050' type='Informational' suppressed=''>
+<MSG id='03DF9BB0' mid='li3050' type='Informational' suppressed=''>
 <TEXT><![CDATA[Input section(s) were excluded from output section 'dxe_block0_nw_code_prio3']]></TEXT>
 <EXTENDED_INFO><![CDATA[The following input section(s) were excluded
     app_startup.doj(seg_pmco)

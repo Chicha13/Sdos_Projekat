@@ -40,7 +40,7 @@ def process_image_to_header(image_path, output_header, array_name):
         f.write('unsigned char gray[%d] __attribute__((section("seg_sdram1")));\n\n' % (width * height))
 
         # rgb[] array declaration and initialization
-        f.write(f"const unsigned char {array_name}[{width * height * 3}] __attribute__((section(\"seg_sdram1\"))) = {{\n")
+        f.write(f"const unsigned char {array_name}[{width * height * 3}] __attribute__((section(\"seg_sdram2\"))) = {{\n")
         
         for y in range(height):
             for x in range(width):

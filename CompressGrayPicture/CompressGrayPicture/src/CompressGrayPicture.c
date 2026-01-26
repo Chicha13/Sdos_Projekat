@@ -10,29 +10,28 @@
 #include <string.h>
 #include <math.h>
 #include <cycle_count.h>
-#include <builtins.h>  // ADSP intrinsics
+#include <builtins.h>
 
 
 cycle_t start_count;
 cycle_t final_count;
 
-
+// block size 8x8
 #define DCT_N 8
 #define DCT_BLOCK_SZ (DCT_N * DCT_N)
 
-#pragma section("seg_sdram1")
+// output text block
+#pragma section("seg_sdram3")
 char textBlock[300000];
 
 
 #ifndef M_PI
-
 #define M_PI_F 3.14159265358979323846f
 #else
-
 #define M_PI_F ((float)M_PI)
 #endif
 
-
+//standard JPEG luminance quantization table
 #pragma section("seg_pm_fast")
 static const int default_qtable[DCT_N][DCT_N] = {
     {16, 11, 10, 16, 24, 40, 51, 61},
@@ -45,6 +44,7 @@ static const int default_qtable[DCT_N][DCT_N] = {
     {72, 92, 95, 98,112,100,103, 99}
 };
 
+//standard JPEG zig-zag order table
 #pragma section("seg_pm_fast")
 static const unsigned char zigzag_idx[64] = {
   0,  1,  5,  6, 14, 15, 27, 28,
@@ -58,16 +58,15 @@ static const unsigned char zigzag_idx[64] = {
 };
 
 
-//#pragma section("seg_pm_fast")
+#pragma section("seg_pm_fast")
 static float DCT_C[DCT_N][DCT_N];
-//#pragma section("seg_pm_fast")
+#pragma section("seg_pm_fast")
 static float INV_Q[DCT_N][DCT_N];
 
-static int DCT_INVQ_inited = 0;
-
+//function initializes the DCT and quantization matrices
 static void init_dct_and_invq(const int qtable[DCT_N][DCT_N])
 {
-    if (DCT_INVQ_inited) return;
+
 
     // init DCT matrix C
     for (int u = 0; u < DCT_N; ++u) {
@@ -81,16 +80,19 @@ static void init_dct_and_invq(const int qtable[DCT_N][DCT_N])
     for (int u = 0; u < DCT_N; ++u) {
         for (int v = 0; v < DCT_N; ++v) {
             int q = qtable[u][v];
-            if (q <= 0) q = 1;
             INV_Q[u][v] = 1.0f / (float)q;
         }
     }
 
-    DCT_INVQ_inited = 1;
 }
 
 
-void rgb_to_grayscale_fixed_32load(const unsigned char * restrict rgb,
+/*
+ * RGB to grayscale conversion function
+ * Manually unroll the loop to process 6 pixels per iteration and use 'restrict'
+ * on both rgb[] and gray[] to help compiler optimizations.
+ */
+void rgb_to_grayscale(const unsigned char * restrict rgb,
                                           unsigned char * restrict gray,
                                           int width, int height)
 {
@@ -99,18 +101,23 @@ void rgb_to_grayscale_fixed_32load(const unsigned char * restrict rgb,
     int pixels = width * height;
     int i = 0;
 
-    //4 Pixels per Iteration
-    for (; i + 3 < pixels; i += 4, p += 12) {
+    // 6 Pixels per Iteration
 
-        int r0 = p[0],  g0 = p[1],  b0 = p[2];
-        int r1 = p[3],  g1 = p[4],  b1 = p[5];
-        int r2 = p[6],  g2 = p[7],  b2 = p[8];
-        int r3 = p[9],  g3 = p[10], b3 = p[11];
+    for (; i + 5 < pixels; i += 6, p += 18) {
+
+        int r0 = p[0],   g0 = p[1],   b0 = p[2];
+        int r1 = p[3],   g1 = p[4],   b1 = p[5];
+        int r2 = p[6],   g2 = p[7],   b2 = p[8];
+        int r3 = p[9],   g3 = p[10],  b3 = p[11];
+        int r4 = p[12],  g4 = p[13],  b4 = p[14];
+        int r5 = p[15],  g5 = p[16],  b5 = p[17];
 
         gray[i + 0] = (unsigned char)((r0*R + g0*G + b0*B + 128) >> 8);
         gray[i + 1] = (unsigned char)((r1*R + g1*G + b1*B + 128) >> 8);
         gray[i + 2] = (unsigned char)((r2*R + g2*G + b2*B + 128) >> 8);
         gray[i + 3] = (unsigned char)((r3*R + g3*G + b3*B + 128) >> 8);
+        gray[i + 4] = (unsigned char)((r4*R + g4*G + b4*B + 128) >> 8);
+        gray[i + 5] = (unsigned char)((r5*R + g5*G + b5*B + 128) >> 8);
     }
 
     // Tail pixels
@@ -121,7 +128,7 @@ void rgb_to_grayscale_fixed_32load(const unsigned char * restrict rgb,
 }
 
 
-
+//Helper function used to write ints to the text block
 static inline char* write_int(char *p, int v)
 {
     if (v == 0) {
@@ -149,9 +156,13 @@ static inline char* write_int(char *p, int v)
 }
 
 
-
-
- void dct_and_quant_block_local(const short * restrict blk_in, short * restrict out_quant )
+/*
+ * DCT and Quantization function
+ * Perform an optimized 2D DCT on an 8×8 input block using a precomputed DCT matrix
+ * Quantize the DCT coefficients by multiplying them with a precomputed
+ * inverse quantization matrix avoiding float division(OPTIMIZED_DIVISON)
+ */
+void dct_and_quant_block(const short * restrict blk_in, short * restrict out_quant )
 {
     float f[DCT_N][DCT_N];
     float G[DCT_N][DCT_N];
@@ -199,20 +210,24 @@ static inline char* write_int(char *p, int v)
 }
 
 
-
- char* encode_one_quant_block_to_text(char *p, const short *restrict quant_block, int *prev_dc)
+/*
+ * Encode a quantized 8×8 DCT block into text format.
+ * Applies zig-zag ordering, differential DC coding,
+ * and run-length encoding of AC coefficients.
+ */
+char* encode_quant_block_to_text(char *p, const short *restrict quant_block, int *prev_dc)
 {
     short zig[64];
     int runs[64];
     short vals[64];
 
-    // zig-zag
+    // assemble zig-zag
     for (int i = 0; i < 64; ++i)
         zig[i] = quant_block[zigzag_idx[i]];
 
     short dc = zig[0];
-    short dc_diff = (short)(dc - *prev_dc);
-    *prev_dc = dc;
+    short dc_diff = (short)(dc - *prev_dc); //value derived from previous DC
+    *prev_dc = dc; //assign new previous DC
 
     int pair_count = 0;
     int run = 0;
@@ -245,8 +260,12 @@ static inline char* write_int(char *p, int v)
 }
 
 
-
-int segment_and_stream_encode_direct(const unsigned char * restrict gray,
+/*
+ * Segment gray[] into NBx * NBy blocks going from left to right and up to down
+ * with each block being 8x8 in size (edge blocks are padded).
+ * Start the processing pipeline on each block(with centered pixels) separately
+ */
+int segment_and_stream_block_pipeline(const unsigned char * restrict gray,
                                      int width, int height,
                                      char * restrict textBlock,
                                      int *num_blocks_x,
@@ -256,6 +275,7 @@ int segment_and_stream_encode_direct(const unsigned char * restrict gray,
 {
     if (!gray || !textBlock) return -1;
 
+    //has to be divisible by 8
     *padded_width  = ((width + 7) >> 3) << 3;
     *padded_height = ((height + 7) >> 3) << 3;
     *num_blocks_x = *padded_width >> 3;
@@ -272,7 +292,7 @@ int segment_and_stream_encode_direct(const unsigned char * restrict gray,
 
     char *p = textBlock;
 
-    /* ===== HEADER ===== */
+    // write the header to textBlock
     *p++ = 'C'; *p++ = 'B'; *p++ = 'M'; *p++ = 'P'; *p++ = ' ';
     p = write_int(p, width);  *p++ = ' ';
     p = write_int(p, height); *p++ = ' ';
@@ -281,7 +301,10 @@ int segment_and_stream_encode_direct(const unsigned char * restrict gray,
     p = write_int(p, num_blocks);
     *p++ = '\n';
 
+
     short blk[DCT_BLOCK_SZ];
+    short quant[DCT_BLOCK_SZ];
+    //previous dc value
     int prev_dc = 0;
 
     for (int by = 0; by < NBy; ++by) {
@@ -307,7 +330,9 @@ int segment_and_stream_encode_direct(const unsigned char * restrict gray,
                     blk[r*8 + 7] = (short)gray[row_offset + 7] - 128;
 
                 }
-            } else {
+            }
+            else {
+            	//The check if padding is required only happens here
                 for (int r = 0; r < 8; ++r) {
                     int y = base_y + r;
                     int src_y = y;
@@ -326,17 +351,16 @@ int segment_and_stream_encode_direct(const unsigned char * restrict gray,
             }
 
             // call DCT and quantization transformation on the block
-            short quant[64];
-            dct_and_quant_block_local(blk, quant);
+            dct_and_quant_block(blk, quant);
 
             // encode the block to textBlock
-            p = encode_one_quant_block_to_text(p, quant, &prev_dc);
+            p = encode_quant_block_to_text(p, quant, &prev_dc);
         }
     }
 
     *p = '\0';
     int used = (int)(p - textBlock);
-    printf("TEXTBLOCK USED = %d\n", used);
+    //printf("TEXTBLOCK USED = %d\n", used);
     return used;
 }
 
@@ -345,11 +369,15 @@ int segment_and_stream_encode_direct(const unsigned char * restrict gray,
 int main(int argc, char *argv[]) {
     adi_initComponents();
     init_dct_and_invq(default_qtable);
+    /*
+    printf("rgb @ %p\n", (void*)rgb);
+    printf("Gray @ %p\n", (void*)gray);
     printf("default_qtable @ %p\n", (void*)default_qtable);
     printf("zigzag_idx @ %p\n", (void*)zigzag_idx);
     printf("textBlock @ %p\n", (void*)textBlock);
     printf("DCT_C @ %p\n", (void*)DCT_C);
     printf("INV_Q @ %p\n", (void*)INV_Q);
+     */
 
     if (WIDTH <= 0 || HEIGHT <= 0) {
         printf("Error: invalid dimensions %d x %d\n", WIDTH, HEIGHT);
@@ -357,23 +385,17 @@ int main(int argc, char *argv[]) {
     }
     printf("Picture dimensions: %d x %d\n", WIDTH, HEIGHT);
 
-
-    printf("rgb @ %p\n", (void*)rgb);
-
-    // measure grayscale conversion
+    // rgb to grayscale conversion
     START_CYCLE_COUNT(start_count);
-    rgb_to_grayscale_fixed_32load(rgb, gray, WIDTH, HEIGHT);
+    rgb_to_grayscale(rgb, gray, WIDTH, HEIGHT);
     STOP_CYCLE_COUNT(final_count, start_count);
     PRINT_CYCLES("Grayscale cycles: ", final_count);
 
-    printf("Gray @ %p\n", (void*)gray);
-    //===========================================================================
-
     int NBx = 0, NBy = 0, Wp = 0, Hp = 0;
 
-    // compress the grayscale pixel values
+    // start the blocks processing pipeline
     START_CYCLE_COUNT(start_count);
-    int rc = segment_and_stream_encode_direct(gray,WIDTH,HEIGHT,textBlock,
+    int rc = segment_and_stream_block_pipeline(gray,WIDTH,HEIGHT,textBlock,
     		&NBx,
             &NBy,
             &Wp,
@@ -383,12 +405,10 @@ int main(int argc, char *argv[]) {
     PRINT_CYCLES("Segmentation/Center/DCT/Quantization/Encoding cycles: ", final_count);
 
     int num_blocks = NBx * NBy;
-    printf("Segmented into NBx=%d, NBy=%d, total blocks=%d, padded %dx%d\n",
-           NBx, NBy, num_blocks, Wp, Hp);
+    printf("Segmented into NBx=%d, NBy=%d, total blocks=%d, padded %dx%d\n",NBx, NBy, num_blocks, Wp, Hp);
     printf("\n");
 
-
-    if (rc != 0) printf("textBlock - Encoding OK, blocks=%d\n", rc);
+    if (rc != 0) printf("textBlock - Encoding OK, Count=%d\n", rc);
     else printf("Encoding failed, rc=%d\n", rc);
 
 
