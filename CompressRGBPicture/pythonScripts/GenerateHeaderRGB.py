@@ -5,7 +5,7 @@ Usage:
     python generateHeaderRGB.py image.bmp|jpg|png
     
 Generates the Image.bmp.h header for the purpose of DSP use
-Generates a ImageRGB.bmp grayscaled image of our original image
+Generates a ImageRGB.bmp rgb image of our original image
 Saves the ImageRGV.raw rgb pixels for reference as the original rgb pixels.
 """
 
