@@ -1,7 +1,6 @@
 /*****************************************************************************
  * CompressRGBPicture.c
  *****************************************************************************/
-
 #include <sys/platform.h>
 #include "adi_initialize.h"
 #include "CompressRGBPicture.h"
@@ -11,34 +10,33 @@
 #include <math.h>
 #include "CityLandscape.bmp.h"
 #include <cycle_count.h>
-#include <builtins.h>  // ADSP intrinsics
+#include <builtins.h>
 
 
 cycle_t start_count;
 cycle_t final_count;
 
-
-#pragma section("seg_sdram1")
+// output text blocks
+#pragma section("seg_sdram2")
  char textBlockR[150000];
-#pragma section("seg_sdram1")
+#pragma section("seg_sdram3")
  char textBlockG[150000];
-#pragma section("seg_sdram1")
+#pragma section("seg_sdram4")
  char textBlockB[150000];
 
-// Single block sizes
+ // block size 8x8
 #define DCT_N 8
 #define DCT_BLOCK_SZ (DCT_N * DCT_N)
 
 
 #ifndef M_PI
-
 #define M_PI_F 3.14159265358979323846f
 #else
-
 #define M_PI_F ((float)M_PI)
 #endif
 
-
+ //standard JPEG luminance quantization table
+#pragma section("seg_pm_fast")
 static const int default_qtable[DCT_N][DCT_N] = {
     {16, 11, 10, 16, 24, 40, 51, 61},
     {12, 12, 14, 19, 26, 58, 60, 55},
@@ -50,7 +48,8 @@ static const int default_qtable[DCT_N][DCT_N] = {
     {72, 92, 95, 98,112,100,103, 99}
 };
 
-
+//standard JPEG zig-zag order table
+#pragma section("seg_pm_fast")
 static const unsigned char zigzag_idx[64] = {
   0,  1,  5,  6, 14, 15, 27, 28,
   2,  4,  7, 13, 16, 26, 29, 42,
@@ -64,17 +63,16 @@ static const unsigned char zigzag_idx[64] = {
 
 
 
-//#pragma section("seg_pm_fast")
+#pragma section("seg_pm_fast")
 static float DCT_C[DCT_N][DCT_N];
-//#pragma section("seg_pm_fast")
+#pragma section("seg_pm_fast")
 static float INV_Q[DCT_N][DCT_N];
 
-static int DCT_INVQ_inited = 0;
 
 
+//function initializes the DCT and quantization matrices
 static void init_dct_and_invq(const int qtable[DCT_N][DCT_N])
 {
-    if (DCT_INVQ_inited) return;
 
     // init DCT matrix C
     for (int u = 0; u < DCT_N; ++u) {
@@ -88,14 +86,17 @@ static void init_dct_and_invq(const int qtable[DCT_N][DCT_N])
     for (int u = 0; u < DCT_N; ++u) {
         for (int v = 0; v < DCT_N; ++v) {
             int q = qtable[u][v];
-            if (q <= 0) q = 1;
             INV_Q[u][v] = 1.0f / (float)q;
         }
     }
 
-    DCT_INVQ_inited = 1;
 }
 
+/*
+ * Split rgb array function
+ * Manually unroll the loop to process 6 pixels per iteration and use 'restrict'
+ * on rgb[], R[], G[], B[] to help compiler optimizations.
+ */
 void rgb_split(const unsigned char * restrict rgb,
                unsigned char * restrict R,
                unsigned char * restrict G,
@@ -103,40 +104,48 @@ void rgb_split(const unsigned char * restrict rgb,
                int width, int height)
 {
     int pixels = width * height;
-    const unsigned char *p = rgb; int i=0;
-    for (; i+3 < pixels; i+=4, p+=12) {
-    	 int r0 = p[0],  g0 = p[1],  b0 = p[2];
-    	 int r1 = p[3],  g1 = p[4],  b1 = p[5];
-    	 int r2 = p[6],  g2 = p[7],  b2 = p[8];
-    	 int r3 = p[9],  g3 = p[10], b3 = p[11];
+    const unsigned char *p = rgb;
+    int i = 0;
 
-        R[i] = r0;
+    for (; i + 5 < pixels; i += 6, p += 18) {
+        int r0 = p[0],  g0 = p[1],  b0 = p[2];
+        int r1 = p[3],  g1 = p[4],  b1 = p[5];
+        int r2 = p[6],  g2 = p[7],  b2 = p[8];
+        int r3 = p[9],  g3 = p[10], b3 = p[11];
+        int r4 = p[12], g4 = p[13], b4 = p[14];
+        int r5 = p[15], g5 = p[16], b5 = p[17];
+
+        R[i + 0] = r0;
         R[i + 1] = r1;
         R[i + 2] = r2;
         R[i + 3] = r3;
+        R[i + 4] = r4;
+        R[i + 5] = r5;
 
-        G[i] = g0;
+        G[i + 0] = g0;
         G[i + 1] = g1;
         G[i + 2] = g2;
         G[i + 3] = g3;
+        G[i + 4] = g4;
+        G[i + 5] = g5;
 
-        B[i] = b0;
+        B[i + 0] = b0;
         B[i + 1] = b1;
         B[i + 2] = b2;
         B[i + 3] = b3;
+        B[i + 4] = b4;
+        B[i + 5] = b5;
     }
 
-    //tail
+    // tail
     for (; i < pixels; ++i, p += 3) {
         R[i] = p[0];
         G[i] = p[1];
         B[i] = p[2];
     }
-
 }
 
-
-
+//Helper function used to write ints to the text block
 static inline char* write_int(char *p, int v)
 {
     if (v == 0) {
@@ -164,7 +173,12 @@ static inline char* write_int(char *p, int v)
 }
 
 
-
+/*
+ * DCT and Quantization function
+ * Perform an optimized 2D DCT on an 8×8 input block using a precomputed DCT matrix
+ * Quantize the DCT coefficients by multiplying them with a precomputed
+ * inverse quantization matrix avoiding float division(OPTIMIZED_DIVISON)
+ */
  void dct_and_quant_block(const short * restrict blk_in, short * restrict out_quant)
 {
     float f[DCT_N][DCT_N];
@@ -212,8 +226,12 @@ static inline char* write_int(char *p, int v)
 }
 
 
-
- char* encode_one_quant_block_to_text(char *p, const short *restrict quant_block, int *prev_dc)
+ /*
+  * Encode a quantized 8×8 DCT block into text format.
+  * Applies zig-zag ordering, differential DC coding,
+  * and run-length encoding of AC coefficients.
+  */
+ char* encode_quant_block_to_text(char *p, const short *restrict quant_block, int *prev_dc)
 {
     short zig[64];
     int runs[64];
@@ -224,8 +242,8 @@ static inline char* write_int(char *p, int v)
         zig[i] = quant_block[zigzag_idx[i]];
 
     short dc = zig[0];
-    short dc_diff = (short)(dc - *prev_dc);
-    *prev_dc = dc;
+    short dc_diff = (short)(dc - *prev_dc);//value derived from previous DC
+    *prev_dc = dc;//assign new previous DC
 
     int pair_count = 0;
     int run = 0;
@@ -257,7 +275,11 @@ static inline char* write_int(char *p, int v)
 }
 
 
-
+ /*
+  * Segment arr[] into NBx * NBy blocks going from left to right and up to down
+  * with each block being 8x8 in size (edge blocks are padded).
+  * Start the processing pipeline on each block(with centered pixels) separately
+  */
 int segment_and_stream_block_pipeline(const unsigned char * restrict arr,
                                      int width, int height,
                                      char * restrict textBlock,
@@ -268,6 +290,7 @@ int segment_and_stream_block_pipeline(const unsigned char * restrict arr,
 {
     if (!arr || !textBlock) return -1;
 
+    //has to be divisible by 8
     *padded_width  = ((width + 7) >> 3) << 3;
     *padded_height = ((height + 7) >> 3) << 3;
     *num_blocks_x = *padded_width >> 3;
@@ -284,7 +307,7 @@ int segment_and_stream_block_pipeline(const unsigned char * restrict arr,
 
     char *p = textBlock;
 
-    /* ===== HEADER ===== */
+    // write the header to textBlock
     *p++ = 'C'; *p++ = 'B'; *p++ = 'M'; *p++ = 'P'; *p++ = ' ';
     p = write_int(p, width);  *p++ = ' ';
     p = write_int(p, height); *p++ = ' ';
@@ -294,6 +317,8 @@ int segment_and_stream_block_pipeline(const unsigned char * restrict arr,
     *p++ = '\n';
 
     short blk[DCT_BLOCK_SZ];
+    short quant[DCT_BLOCK_SZ];
+    //previous dc value
     int prev_dc = 0;
 
     for (int by = 0; by < NBy; ++by) {
@@ -320,6 +345,7 @@ int segment_and_stream_block_pipeline(const unsigned char * restrict arr,
 
                 }
             } else {
+            	//The check if padding is required only happens here
                 for (int r = 0; r < 8; ++r) {
                     int y = base_y + r;
                     int src_y = y;
@@ -338,11 +364,10 @@ int segment_and_stream_block_pipeline(const unsigned char * restrict arr,
             }
 
             // call DCT and quantization transformation on the block
-            short quant[64];
             dct_and_quant_block(blk, quant);
 
             // encode the block to textBlock
-            p = encode_one_quant_block_to_text(p, quant, &prev_dc);
+            p = encode_quant_block_to_text(p, quant, &prev_dc);
         }
     }
 
@@ -360,12 +385,16 @@ int segment_and_stream_block_pipeline(const unsigned char * restrict arr,
 int main(int argc, char *argv[]) {
     adi_initComponents();
     init_dct_and_invq(default_qtable);
+/*
+    printf("rgb @ %p\n", (void*)rgb);
+    printf("Rch @ %p\n", (void*)Rch);
+    printf("Gch @ %p\n", (void*)Gch);
+    printf("Bch @ %p\n", (void*)Bch);
     printf("default_qtable @ %p\n", (void*)default_qtable);
     printf("zigzag_idx @ %p\n", (void*)zigzag_idx);
     printf("DCT_C @ %p\n", (void*)DCT_C);
     printf("INV_Q @ %p\n", (void*)INV_Q);
-    printf("\n");
-
+*/
     if (WIDTH <= 0 || HEIGHT <= 0) {
         printf("Error: invalid dimensions %d x %d\n", WIDTH, HEIGHT);
         return 3;
@@ -373,17 +402,11 @@ int main(int argc, char *argv[]) {
     printf("Picture dimensions: %d x %d\n", WIDTH, HEIGHT);
 
 
-    printf("rgb @ %p\n", (void*)rgb);
-    printf("Quantization Table @ %p\n", (void*)default_qtable);
     // measure rgb split
     START_CYCLE_COUNT(start_count);
     rgb_split(rgb, Rch,Gch,Bch, WIDTH, HEIGHT);
     STOP_CYCLE_COUNT(final_count, start_count);
     PRINT_CYCLES("Split cycles: ", final_count);
-
-
-    //===========================================================================
-
 
     int NBx = 0, NBy = 0, Wp = 0, Hp = 0;
     int usedR, usedG, usedB, num_blocks;
@@ -393,9 +416,8 @@ int main(int argc, char *argv[]) {
     		WIDTH, HEIGHT,textBlockR,&NBx, &NBy, &Wp, &Hp);
     STOP_CYCLE_COUNT(final_count, start_count);
     PRINT_CYCLES("R total cycles: ", final_count);
-    printf("textBlockR USED = %d\n", usedR);
+    printf("textBlockR Count = %d\n", usedR);
 
-    printf("Rch @ %p\n", (void*)Rch);
     num_blocks = NBx * NBy;
     printf("Segmented into NBx=%d, NBy=%d, total blocks=%d, padded %dx%d\n",
            NBx, NBy, num_blocks, Wp, Hp);
@@ -407,9 +429,8 @@ int main(int argc, char *argv[]) {
     		WIDTH, HEIGHT,textBlockG,&NBx, &NBy, &Wp, &Hp);
     STOP_CYCLE_COUNT(final_count, start_count);
     PRINT_CYCLES("G total cycles: ", final_count);
-    printf("textBlockG USED = %d\n", usedG);
+    printf("textBlockG Count = %d\n", usedG);
 
-    printf("Gch @ %p\n", (void*)Gch);
     num_blocks = NBx * NBy;
     printf("Segmented into NBx=%d, NBy=%d, total blocks=%d, padded %dx%d\n",
            NBx, NBy, num_blocks, Wp, Hp);
@@ -420,15 +441,14 @@ int main(int argc, char *argv[]) {
     		WIDTH, HEIGHT,textBlockB,&NBx, &NBy, &Wp, &Hp);
     STOP_CYCLE_COUNT(final_count, start_count);
     PRINT_CYCLES("B total cycles: ", final_count);
-    printf("textBlockB USED = %d\n", usedB);
+    printf("textBlockB Count = %d\n", usedB);
 
-    printf("Bch @ %p\n", (void*)Bch);
     num_blocks = NBx * NBy;
     printf("Segmented into NBx=%d, NBy=%d, total blocks=%d, padded %dx%d\n",
            NBx, NBy, num_blocks, Wp, Hp);
     printf("\n");
 
-    //====================================================================================
+
 
 
     return 0;

@@ -36,9 +36,9 @@ def process_image_to_header(image_path, output_header, array_name):
         f.write(f"#define WIDTH {width}\n")
         f.write(f"#define HEIGHT {height}\n\n")
         # Rch[] Gch[] Bch[] array declaration
-        f.write('unsigned char Rch[%d] __attribute__((section("seg_sdram1")));\n\n' % (width * height))
-        f.write('unsigned char Gch[%d] __attribute__((section("seg_sdram1")));\n\n' % (width * height))
-        f.write('unsigned char Bch[%d] __attribute__((section("seg_sdram1")));\n\n' % (width * height))
+        f.write('unsigned char Rch[%d] __attribute__((section("seg_sdram2")));\n\n' % (width * height))
+        f.write('unsigned char Gch[%d] __attribute__((section("seg_sdram3")));\n\n' % (width * height))
+        f.write('unsigned char Bch[%d] __attribute__((section("seg_sdram4")));\n\n' % (width * height))
         # rgb[] array declaration and initialization
         f.write(f"const unsigned char {array_name}[{width * height * 3}] __attribute__((section(\"seg_sdram1\"))) = {{\n")
         

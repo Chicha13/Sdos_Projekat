@@ -130,7 +130,10 @@ MEMORY
    mem_block3_dm32         { TYPE(DM RAM) START(0x000E0000) END(0x000E7FFF) WIDTH(32) }
    mem_sram                { TYPE(DM RAM ASYNCHRONOUS) START(0x0C000000) END(0x0C07FFFF) WIDTH(16) }
    mem_flash               { TYPE(DM RAM ASYNCHRONOUS) START(0x04000000) END(0x043FFFFF) WIDTH(8) }
-   mem_sdram         	   { TYPE(DM RAM) START(0x00200000) END(0x009FFFFF) WIDTH(32) }
+   mem_sdram1     		   { TYPE(DM RAM) START(0x00200000) END(0x003FFFFF) WIDTH(32) }  // bank0
+   mem_sdram2    		   { TYPE(DM RAM) START(0x00400000) END(0x005FFFFF) WIDTH(32) }  // bank1 
+   mem_sdram3   	       { TYPE(DM RAM) START(0x00600000) END(0x007FFFFF) WIDTH(32) }  // bank2
+   mem_sdram4     		   { TYPE(DM RAM) START(0x00800000) END(0x009FFFFF) WIDTH(32) }  // bank3
    /*$VDSG<insert-new-memory-segments>                          */
    /* Text inserted between these $VDSG comments will be preserved */
    /*$VDSG<insert-new-memory-segments>                          */
@@ -534,17 +537,33 @@ PROCESSOR p0
          
       } > mem_sram
       
-         dxe_seg_sdram1
-	{
-    	INPUT_SECTIONS( $OBJECTS(seg_sdram1) )
-	} > mem_sdram
-	/*
-	        dxe_seg_sram1
+      /*
+      dxe_seg_sram1
 	{
     	INPUT_SECTIONS( $OBJECTS(seg_sram1) )
-	} > mem_sram*/
+	} > mem_sram
+	*/
+      dxe_seg_sdram1
+	{
+    	INPUT_SECTIONS( $OBJECTS(seg_sdram1) )
+	} > mem_sdram1
+		
+	  dxe_seg_sdram2
+	{
+    	INPUT_SECTIONS( $OBJECTS(seg_sdram2) )
+	} > mem_sdram2
 	
-	    dxe_seg_pm_fast
+	 dxe_seg_sdram3
+	{
+    	INPUT_SECTIONS( $OBJECTS(seg_sdram3) )
+	} > mem_sdram3
+	
+	 dxe_seg_sdram4
+	{
+    	INPUT_SECTIONS( $OBJECTS(seg_sdram4) )
+	} > mem_sdram4
+		
+	  dxe_seg_pm_fast
 	{
     	INPUT_SECTIONS( $OBJECTS(seg_pm_fast) )
 	} > mem_block2_pm32
